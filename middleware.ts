@@ -14,7 +14,7 @@ const protectedRoutes = [
   "/account",
 ];
 
-export default auth((req: NextRequest & { auth?: unknown }) => {
+function middlewareHandler(req: NextRequest & { auth?: unknown }) {
   const isProtectedRoute = protectedRoutes.some((route) =>
     req.nextUrl.pathname.startsWith(route),
   );
@@ -27,7 +27,9 @@ export default auth((req: NextRequest & { auth?: unknown }) => {
   signInUrl.searchParams.set("callbackUrl", req.nextUrl.pathname);
 
   return NextResponse.redirect(signInUrl);
-});
+}
+
+export default auth(middlewareHandler);
 
 export const config = {
   matcher: ["/((?!api/auth|_next/static|_next/image|favicon.ico).*)"],
