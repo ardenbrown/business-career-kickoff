@@ -6,6 +6,36 @@ import { PrismaAdapter } from "@auth/prisma-adapter";
 import { env } from "@/lib/env";
 import { prisma } from "@/lib/prisma";
 
+function normalizeRuntimeUrl(value?: string) {
+  if (!value) {
+    return undefined;
+  }
+
+  const trimmed = value.trim().replace(/^['"]|['"]$/g, "").replace(/\/+$/, "");
+  if (!trimmed) {
+    return undefined;
+  }
+
+  if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
+    return trimmed;
+  }
+
+  return `https://${trimmed}`;
+}
+
+const normalizedAuthUrl =
+  normalizeRuntimeUrl(process.env.AUTH_URL) ??
+  normalizeRuntimeUrl(process.env.AUTHJS_URL) ??
+  normalizeRuntimeUrl(process.env.NEXTAUTH_URL) ??
+  normalizeRuntimeUrl(process.env.VERCEL_PROJECT_PRODUCTION_URL) ??
+  normalizeRuntimeUrl(process.env.VERCEL_URL);
+
+if (normalizedAuthUrl) {
+  process.env.AUTH_URL = normalizedAuthUrl;
+  process.env.AUTHJS_URL = normalizedAuthUrl;
+  process.env.NEXTAUTH_URL = normalizedAuthUrl;
+}
+
 const initAuth = NextAuth as unknown as (config: any) => {
   handlers: any;
   auth: any;
