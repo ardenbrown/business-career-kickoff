@@ -5,7 +5,14 @@ import { PrismaAdapter } from "@auth/prisma-adapter";
 import { env } from "@/lib/env";
 import { prisma } from "@/lib/prisma";
 
-export const { handlers, auth, signIn, signOut } = NextAuth({
+const initAuth = NextAuth as unknown as (config: any) => {
+  handlers: any;
+  auth: any;
+  signIn: any;
+  signOut: any;
+};
+
+export const { handlers, auth, signIn, signOut } = initAuth({
   adapter: PrismaAdapter(prisma),
   trustHost: true,
   session: {
