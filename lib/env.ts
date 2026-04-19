@@ -1,9 +1,27 @@
 import { z } from "zod";
 
+function normalizeUrl(value: unknown) {
+  if (typeof value !== "string") {
+    return undefined;
+  }
+
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return undefined;
+  }
+
+  const withProtocol =
+    trimmed.startsWith("http://") || trimmed.startsWith("https://")
+      ? trimmed
+      : `https://${trimmed}`;
+
+  return withProtocol.replace(/\/+$/, "");
+}
+
 const envSchema = z.object({
   DATABASE_URL: z.string().min(1),
   AUTH_SECRET: z.string().min(1),
-  AUTH_URL: z.string().url().optional(),
+  AUTH_URL: z.preprocess(normalizeUrl, z.string().url().optional()),
   RESEND_API_KEY: z.string().optional(),
   AUTH_EMAIL_FROM: z.string().default("Business Career Kickoff <noreply@example.com>"),
   OPENAI_API_KEY: z.string().optional(),
@@ -20,7 +38,12 @@ export const env = envSchema.parse({
     process.env.POSTGRES_PRISMA_URL ??
     process.env.POSTGRES_URL,
   AUTH_SECRET: process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET,
-  AUTH_URL: process.env.AUTH_URL,
+  AUTH_URL:
+    process.env.AUTH_URL ??
+    process.env.AUTHJS_URL ??
+    process.env.NEXTAUTH_URL ??
+    process.env.VERCEL_PROJECT_PRODUCTION_URL ??
+    process.env.VERCEL_URL,
   RESEND_API_KEY: process.env.RESEND_API_KEY,
   AUTH_EMAIL_FROM: process.env.AUTH_EMAIL_FROM,
   OPENAI_API_KEY: process.env.OPENAI_API_KEY,
