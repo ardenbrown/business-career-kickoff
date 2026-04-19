@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 
 import { auth } from "@/auth";
 
@@ -14,7 +14,7 @@ const protectedRoutes = [
   "/account",
 ];
 
-export default auth((req) => {
+export default auth((req: NextRequest & { auth?: unknown }) => {
   const isProtectedRoute = protectedRoutes.some((route) =>
     req.nextUrl.pathname.startsWith(route),
   );
