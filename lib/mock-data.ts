@@ -183,7 +183,7 @@ export function buildOutreachFallback(
 }
 
 export function buildApplicationPlanFallback(
-  profile: Profile,
+  _profile: Profile,
 ): ApplicationPlanPayload {
   return {
     summary:
