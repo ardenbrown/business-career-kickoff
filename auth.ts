@@ -17,7 +17,7 @@ export const { handlers, auth, signIn, signOut } = initAuth({
   adapter: PrismaAdapter(prisma),
   trustHost: true,
   session: {
-    strategy: "database",
+    strategy: "jwt",
   },
   pages: {
     signIn: "/auth/sign-in",
@@ -30,15 +30,24 @@ export const { handlers, auth, signIn, signOut } = initAuth({
     }),
   ],
   callbacks: {
+    jwt: async ({ token, user }: { token: { sub?: string; id?: string }; user?: { id: string } }) => {
+      if (user?.id) {
+        token.id = user.id;
+      }
+
+      return token;
+    },
     session: async ({
       session,
       user,
+      token,
     }: {
       session: Session;
-      user: { id: string };
+      user?: { id: string };
+      token?: { sub?: string; id?: string };
     }) => {
       if (session.user) {
-        session.user.id = user.id;
+        session.user.id = user?.id ?? token?.id ?? token?.sub ?? "";
       }
 
       return session;
