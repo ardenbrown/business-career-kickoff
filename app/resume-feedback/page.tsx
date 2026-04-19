@@ -26,12 +26,6 @@ export default async function ResumeFeedbackPage() {
             <Card className="p-6">
               <div className="space-y-4">
                 <h3 className="text-lg font-semibold text-ink">Latest analysis</h3>
-                <div className="rounded-2xl border border-border bg-white/80 px-4 py-3 text-sm text-muted">
-                  Analysis source:{" "}
-                  <span className="font-medium text-ink">
-                    {analysis.source === "ai" ? "AI-generated from your uploaded resume" : "Fallback guidance"}
-                  </span>
-                </div>
                 <p className="text-sm leading-7 text-muted">{analysis.overallAssessment}</p>
                 <Accordion
                   items={[
@@ -96,16 +90,6 @@ export default async function ResumeFeedbackPage() {
             />
           )}
         </div>
-        {analysis ? (
-          <Card className="p-6">
-            <div className="space-y-4">
-              <h3 className="text-lg font-semibold text-ink">Extracted resume text preview</h3>
-              <pre className="max-h-64 overflow-auto whitespace-pre-wrap rounded-2xl bg-slateBlue/40 p-4 text-xs leading-6 text-ink">
-                {analysis.extractedTextSample || "No extracted text preview available."}
-              </pre>
-            </div>
-          </Card>
-        ) : null}
         {analysis ? (
           <Card className="p-6">
             <div className="space-y-4">
