@@ -1,4 +1,5 @@
 import NextAuth from "next-auth";
+import type { Session } from "next-auth";
 import Resend from "next-auth/providers/resend";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 
@@ -29,7 +30,13 @@ export const { handlers, auth, signIn, signOut } = initAuth({
     }),
   ],
   callbacks: {
-    session: async ({ session, user }) => {
+    session: async ({
+      session,
+      user,
+    }: {
+      session: Session;
+      user: { id: string };
+    }) => {
       if (session.user) {
         session.user.id = user.id;
       }
