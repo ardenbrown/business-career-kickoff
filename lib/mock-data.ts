@@ -108,290 +108,45 @@ export function buildRoleRecommendationsFallback(
   };
 }
 
-const ACTION_VERBS = [
-  "analyzed",
-  "built",
-  "coordinated",
-  "created",
-  "delivered",
-  "developed",
-  "drove",
-  "executed",
-  "improved",
-  "increased",
-  "launched",
-  "led",
-  "managed",
-  "modeled",
-  "organized",
-  "optimized",
-  "presented",
-  "researched",
-  "streamlined",
-  "supported",
-];
-
-const BUSINESS_KEYWORDS = [
-  "analysis",
-  "analyst",
-  "budget",
-  "campaign",
-  "client",
-  "crm",
-  "customer",
-  "dashboard",
-  "excel",
-  "forecast",
-  "market",
-  "operations",
-  "presentation",
-  "project",
-  "reporting",
-  "sales",
-  "sql",
-  "strategy",
-];
-
-function uniquePush(items: string[], value: string) {
-  if (!items.includes(value)) {
-    items.push(value);
-  }
-}
-
-function extractResumeLines(resumeText: string) {
-  return resumeText
-    .split("\n")
-    .map((line) => line.replace(/\s+/g, " ").trim())
-    .filter(Boolean);
-}
-
-function findBulletLines(lines: string[]) {
-  return lines.filter((line) => /^[-*•]/.test(line) || /^[A-Z][a-z]+ed\b/.test(line));
-}
-
-function stripBulletPrefix(line: string) {
-  return line.replace(/^[-*•]\s*/, "").trim();
-}
-
-function hasNumber(line: string) {
-  return /\d/.test(line);
-}
-
-function startsWithActionVerb(line: string) {
-  const normalized = stripBulletPrefix(line).toLowerCase();
-  return ACTION_VERBS.some((verb) => normalized.startsWith(verb));
-}
-
-function containsKeyword(text: string, keyword: string) {
-  return new RegExp(`\\b${keyword.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i").test(text);
-}
-
-function inferResumeSignals(profile: Profile, resumeText: string) {
-  const lines = extractResumeLines(resumeText);
-  const bullets = findBulletLines(lines);
-  const normalizedText = resumeText.toLowerCase();
-
-  const hasEducation = containsKeyword(normalizedText, "education");
-  const hasExperience = containsKeyword(normalizedText, "experience");
-  const hasSkills = containsKeyword(normalizedText, "skills");
-  const hasSummary = containsKeyword(normalizedText, "summary") || containsKeyword(normalizedText, "profile");
-  const bulletsWithNumbers = bullets.filter(hasNumber);
-  const bulletsWithActionVerbs = bullets.filter(startsWithActionVerb);
-  const keywordHits = BUSINESS_KEYWORDS.filter((keyword) => containsKeyword(normalizedText, keyword));
-  const targetHits = [
-    profile.industryInterest,
-    profile.targetRoleFocus ?? "",
-    ...(profile.companyTypes ?? []),
-  ].filter(Boolean).filter((keyword) => containsKeyword(normalizedText, keyword.toLowerCase()));
-
+export function buildResumeFallback(profile: Profile): ResumeAnalysisPayload {
   return {
-    lines,
-    bullets,
-    hasEducation,
-    hasExperience,
-    hasSkills,
-    hasSummary,
-    bulletsWithNumbers,
-    bulletsWithActionVerbs,
-    keywordHits,
-    targetHits,
-  };
-}
-
-function buildRewriteSuggestion(line: string) {
-  const stripped = stripBulletPrefix(line);
-  const normalized = stripped.replace(/\.$/, "");
-  const lower = normalized.toLowerCase();
-
-  if (lower.startsWith("helped ")) {
-    return normalized.replace(/^helped\b/i, "Supported") + " by naming the project scope, teammates, and measurable result.";
-  }
-
-  if (lower.startsWith("worked on ")) {
-    return normalized.replace(/^worked on\b/i, "Executed") + " and finish with the outcome, recommendation, or number affected.";
-  }
-
-  if (!hasNumber(stripped)) {
-    return `${normalized} Include the scale, output, or result so the bullet ends with a business outcome.`;
-  }
-
-  return `${normalized} Tighten this into action + scope + result so the impact is obvious in one line.`;
-}
-
-export function buildResumeFallback(profile: Profile, resumeText: string): ResumeAnalysisPayload {
-  const signals = inferResumeSignals(profile, resumeText);
-  const strengths: string[] = [];
-  const weaknesses: string[] = [];
-  const atsConcerns: string[] = [];
-  const framingSuggestions: string[] = [];
-  const tailoredRecommendations: string[] = [];
-
-  if (signals.hasEducation) {
-    uniquePush(strengths, "Education details are present, which helps early-career recruiters quickly confirm your graduation timing.");
-  }
-
-  if (signals.hasExperience || signals.bullets.length >= 3) {
-    uniquePush(strengths, "The resume includes experience-style content instead of relying only on coursework or a simple profile summary.");
-  }
-
-  if (signals.bulletsWithActionVerbs.length >= Math.max(2, Math.floor(signals.bullets.length / 3))) {
-    uniquePush(strengths, "Several bullets already start with action language, which makes the experience read more actively.");
-  }
-
-  if (signals.bulletsWithNumbers.length >= 2) {
-    uniquePush(strengths, "There are at least a few quantified bullets, which gives recruiters clearer evidence of scope or results.");
-  }
-
-  if (signals.keywordHits.length >= 4) {
-    uniquePush(
-      strengths,
-      `The resume already contains useful business keywords like ${signals.keywordHits.slice(0, 4).join(", ")}.`,
-    );
-  }
-
-  if (signals.targetHits.length > 0) {
-    uniquePush(
-      strengths,
-      `Some of your target-direction language is already present, including ${signals.targetHits.slice(0, 3).join(", ")}.`,
-    );
-  }
-
-  if (signals.bullets.length === 0) {
-    uniquePush(weaknesses, "The PDF text does not show clear bullet-style experience lines, which makes the resume harder to scan quickly.");
-  } else {
-    if (signals.bulletsWithNumbers.length < Math.max(2, Math.floor(signals.bullets.length / 3))) {
-      uniquePush(weaknesses, "Most bullets do not show numbers, scale, frequency, or outcomes yet, so the impact is still undersold.");
-    }
-
-    if (signals.bulletsWithActionVerbs.length < Math.max(2, Math.floor(signals.bullets.length / 3))) {
-      uniquePush(weaknesses, "Too many bullets start passively or read like duties instead of clear actions and results.");
-    }
-  }
-
-  if (!signals.hasSummary) {
-    uniquePush(weaknesses, "There does not appear to be a short summary or target-role intro near the top to quickly position you.");
-  }
-
-  if (!signals.hasSkills) {
-    uniquePush(weaknesses, "A visible skills section does not appear in the extracted text, which may hide tools recruiters are screening for.");
-  }
-
-  if (signals.keywordHits.length < 4) {
-    uniquePush(
-      atsConcerns,
-      `The resume could mirror more exact keywords from ${profile.industryInterest.toLowerCase()} postings, especially analyst, coordinator, reporting, Excel, and project language.`,
-    );
-  }
-
-  if (!signals.hasSkills) {
-    uniquePush(atsConcerns, "Add a standard Skills section with tools, platforms, and analysis software so ATS systems can match them cleanly.");
-  }
-
-  if (!signals.hasEducation || !signals.hasExperience) {
-    uniquePush(atsConcerns, "Use standard section headings like Education, Experience, Leadership, and Skills so scanners can classify content reliably.");
-  }
-
-  uniquePush(
-    framingSuggestions,
-    `Frame each strong experience line around a business problem, your action, and the result tied to ${profile.industryInterest.toLowerCase()} work.`,
-  );
-  uniquePush(
-    framingSuggestions,
-    "Move the strongest internship, campus leadership, or project examples higher than lower-signal descriptions or generic responsibilities.",
-  );
-
-  if (signals.bulletsWithNumbers.length < Math.max(2, Math.floor(signals.bullets.length / 3))) {
-    uniquePush(
-      framingSuggestions,
-      "For each role, revise at least two bullets to include numbers such as timeline, team size, volume, revenue, or percentage change.",
-    );
-  }
-
-  uniquePush(
-    tailoredRecommendations,
-    `Tailor the top third of the resume toward ${profile.targetRoleFocus || `${profile.industryInterest} coordinator and analyst roles`} before each application batch.`,
-  );
-  uniquePush(
-    tailoredRecommendations,
-    "Keep the most relevant tools, coursework, internships, and leadership examples above older or less relevant content.",
-  );
-  uniquePush(
-    tailoredRecommendations,
-    "Rewrite weak bullets into action + scope + result format so the value is obvious in a six-second scan.",
-  );
-
-  const candidateBullets = signals.bullets.slice(0, 2).map(stripBulletPrefix).filter(Boolean);
-  const bulletRewriteIdeas =
-    candidateBullets.length > 0
-      ? candidateBullets.map((line) => ({
-          original: line,
-          rewrite: buildRewriteSuggestion(line),
-        }))
-      : [
-          {
-            original: "Helped with marketing campaigns and team projects.",
-            rewrite:
-              "Coordinated campaign tasks and team deliverables, then add channel scope, deadline, and outcome so the bullet shows real business impact.",
-          },
-          {
-            original: "Worked on a class business project.",
-            rewrite:
-              "Analyzed a business case with a small team, presented recommendations, and add the result or decision your work influenced.",
-          },
-        ];
-
-  const overallAssessment = signals.bullets.length
-    ? "Your resume has usable early-career material, but the strongest improvement opportunity is turning existing experience lines into clearer business outcomes and role-specific positioning."
-    : "The extracted resume text suggests the document is light on scannable experience bullets, so the first priority is making your experience easier to read and easier to match to entry-level business roles.";
-
-  while (strengths.length < 3) {
-    uniquePush(strengths, "The resume is clearly aimed at business roles and can be improved without a full rewrite.");
-  }
-
-  while (weaknesses.length < 3) {
-    uniquePush(weaknesses, "The top third of the resume could communicate your fit for target roles more directly.");
-  }
-
-  while (atsConcerns.length < 2) {
-    uniquePush(atsConcerns, "Use consistent date formatting and standard headings so applicant tracking systems can parse the document more reliably.");
-  }
-
-  while (framingSuggestions.length < 2) {
-    uniquePush(framingSuggestions, "Prioritize bullets that show ownership, analysis, communication, or process improvement over generic support work.");
-  }
-
-  while (tailoredRecommendations.length < 3) {
-    uniquePush(tailoredRecommendations, "Match resume keywords to the role family you are applying for before each application batch.");
-  }
-
-  return {
-    overallAssessment,
-    strengths: strengths.slice(0, 4),
-    weaknesses: weaknesses.slice(0, 4),
-    atsConcerns: atsConcerns.slice(0, 3),
-    framingSuggestions: framingSuggestions.slice(0, 3),
-    bulletRewriteIdeas,
-    tailoredRecommendations: tailoredRecommendations.slice(0, 4),
+    overallAssessment:
+      "Your resume likely has the right raw ingredients for early-career business roles, but it should do a better job converting experiences into clear business outcomes.",
+    strengths: [
+      "Relevant business direction and early-career positioning",
+      "Likely mix of coursework, campus work, and internship signals",
+      "Adaptable for multiple entry-level role families",
+    ],
+    weaknesses: [
+      "Bullets may describe tasks more than impact",
+      "Top section may not point clearly at your target roles",
+      "Some experience lines may not carry enough numbers or scope",
+    ],
+    atsConcerns: [
+      "Mirror more of the exact keywords used in coordinator and analyst openings.",
+      "Use standard headings and consistent date formatting.",
+    ],
+    framingSuggestions: [
+      `Frame projects around decisions, recommendations, or process improvement related to ${profile.industryInterest.toLowerCase()}.`,
+      "Move the most relevant internship and leadership evidence higher on the page.",
+    ],
+    bulletRewriteIdeas: [
+      {
+        original: "Helped with marketing campaigns.",
+        rewrite:
+          "Coordinated campaign tasks across email and social channels, helping deliver launches on time and improving team reporting clarity.",
+      },
+      {
+        original: "Worked with team on business project.",
+        rewrite:
+          "Partnered with a 4-person team to analyze customer trends and present recommendations that informed the final project strategy.",
+      },
+    ],
+    tailoredRecommendations: [
+      "Add a concise target-role summary if you are applying across a focused set of roles.",
+      "Quantify internship, campus, and project outcomes wherever possible.",
+      "Tailor your top keywords to the specific role family before each batch of applications.",
+    ],
   };
 }
 
