@@ -19,7 +19,7 @@ export function getOpenAIClient() {
   return openaiClient;
 }
 
-function extractJsonObject(content: string) {
+export function extractJsonObject(content: string) {
   const match = content.match(/\{[\s\S]*\}/);
 
   if (!match) {

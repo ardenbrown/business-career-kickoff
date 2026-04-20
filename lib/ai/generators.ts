@@ -1,6 +1,7 @@
 import { ContentType, JobSearchStage, Prisma, type Profile } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
+import { env } from "@/lib/env";
 import type {
   ApplicationPlanPayload,
   DashboardPayload,
@@ -25,7 +26,7 @@ import {
   roleRecommendationsSchema,
   timelineSchema,
 } from "@/lib/ai/schemas";
-import { generateStructuredObject, getOpenAIClient } from "@/lib/ai/client";
+import { extractJsonObject, generateStructuredObject, getOpenAIClient } from "@/lib/ai/client";
 
 function serializeProfile(profile: Profile) {
   return JSON.stringify(
@@ -134,16 +135,53 @@ export async function generateRoleRecommendations(profile: Profile, userId: stri
 }
 
 export async function generateResumeAnalysis(profile: Profile, userId: string, resumeText: string, resumeId?: string) {
-  const { payload, source } = await withFallback<ResumeAnalysisPayload>(
-    async () =>
-      generateStructuredObject({
-        schema: resumeAnalysisSchema,
-        system:
-          "You are an expert early-career resume reviewer for business candidates. Tie feedback tightly to target roles and ATS clarity.",
-        prompt: `Review this resume for the following user profile.\nProfile:\n${serializeProfile(profile)}\nResume text:\n${resumeText.slice(0, 12000)}`,
-      }),
-    () => buildResumeFallback(profile),
-  );
+  const fallback = buildResumeFallback(profile);
+  let payload = fallback;
+  let source = "fallback" as const;
+  const client = getOpenAIClient();
+
+  if (client) {
+    try {
+      const response = await client.responses.create({
+        model: env.OPENAI_MODEL,
+        input: [
+          {
+            role: "system",
+            content:
+              "You are an expert early-career resume reviewer for business candidates. Return valid JSON only. Use exactly these keys: overallAssessment, strengths, weaknesses, atsConcerns, framingSuggestions, bulletRewriteIdeas, tailoredRecommendations.",
+          },
+          {
+            role: "user",
+            content: `Review this resume for the following user profile.\nProfile:\n${serializeProfile(profile)}\nResume text:\n${resumeText.slice(0, 12000)}\nReturn concise but specific feedback that references the resume itself when possible.`,
+          },
+        ],
+      });
+
+      const parsed = resumeAnalysisSchema.partial().parse(
+        JSON.parse(extractJsonObject(response.output_text)),
+      );
+
+      payload = {
+        overallAssessment: parsed.overallAssessment ?? fallback.overallAssessment,
+        strengths: parsed.strengths?.length ? parsed.strengths : fallback.strengths,
+        weaknesses: parsed.weaknesses?.length ? parsed.weaknesses : fallback.weaknesses,
+        atsConcerns: parsed.atsConcerns?.length ? parsed.atsConcerns : fallback.atsConcerns,
+        framingSuggestions: parsed.framingSuggestions?.length
+          ? parsed.framingSuggestions
+          : fallback.framingSuggestions,
+        bulletRewriteIdeas: parsed.bulletRewriteIdeas?.length
+          ? parsed.bulletRewriteIdeas
+          : fallback.bulletRewriteIdeas,
+        tailoredRecommendations: parsed.tailoredRecommendations?.length
+          ? parsed.tailoredRecommendations
+          : fallback.tailoredRecommendations,
+      };
+
+      source = "ai";
+    } catch (error) {
+      console.error("AI generation failed, using fallback:", error);
+    }
+  }
 
   await prisma.resumeAnalysis.create({
     data: {
