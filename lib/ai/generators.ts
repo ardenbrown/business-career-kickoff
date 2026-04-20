@@ -136,7 +136,7 @@ export async function generateRoleRecommendations(profile: Profile, userId: stri
 export async function generateResumeAnalysis(profile: Profile, userId: string, resumeText: string, resumeId?: string) {
   const fallback = buildResumeFallback(profile);
   let payload = fallback;
-  let source = "fallback" as const;
+  let source: "fallback" | "ai" = "fallback";
   const client = getOpenAIClient();
 
   if (client) {
