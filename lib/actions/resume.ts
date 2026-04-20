@@ -24,7 +24,11 @@ export async function uploadResumeAction(formData: FormData) {
     throw new Error("Please choose a PDF resume.");
   }
 
-  const parsed = await parseResumeFile(file);
+  const parsed = await withTimeout(
+    parseResumeFile(file),
+    12000,
+    "We could not finish reading this PDF. Please try saving it as a simpler PDF and upload again.",
+  );
   const profile = await prisma.profile.findUnique({
     where: { userId: user.id },
   });
