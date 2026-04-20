@@ -60,8 +60,6 @@ export async function uploadResumeAction(formData: FormData) {
   );
 
   revalidatePath("/resume-feedback");
-  revalidatePath("/dashboard");
-  revalidatePath("/account");
 
   return { success: true };
 }
