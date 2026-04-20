@@ -6,6 +6,7 @@ import type {
   ApplicationPlanPayload,
   DashboardPayload,
   OutreachPayload,
+  ResumeAnalysisPayload,
   RoleRecommendationsPayload,
   TimelinePayload,
 } from "@/lib/types";
