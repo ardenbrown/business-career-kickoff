@@ -71,6 +71,42 @@ async function logHistory(userId: string, type: ContentType, title: string, payl
   });
 }
 
+function normalizeBulletRewriteIdeas(
+  value: unknown,
+  fallback: ResumeAnalysisPayload["bulletRewriteIdeas"],
+): ResumeAnalysisPayload["bulletRewriteIdeas"] {
+  if (!Array.isArray(value) || value.length === 0) {
+    return fallback;
+  }
+
+  const normalized = value
+    .map((item) => {
+      if (
+        item &&
+        typeof item === "object" &&
+        "original" in item &&
+        "rewrite" in item &&
+        typeof item.original === "string" &&
+        typeof item.rewrite === "string"
+      ) {
+        return { original: item.original, rewrite: item.rewrite };
+      }
+
+      if (typeof item === "string") {
+        const [originalPart, rewritePart] = item.split(/\s*=>\s*|\s*->\s*|\s*:\s*/, 2);
+        return {
+          original: originalPart?.trim() || "Resume bullet",
+          rewrite: rewritePart?.trim() || item.trim(),
+        };
+      }
+
+      return null;
+    })
+    .filter((item): item is { original: string; rewrite: string } => Boolean(item));
+
+  return normalized.length ? normalized : fallback;
+}
+
 export async function generateDashboardInsight(profile: Profile, userId: string) {
   const { payload } = await withFallback<DashboardPayload>(
     async () =>
@@ -156,9 +192,11 @@ export async function generateResumeAnalysis(profile: Profile, userId: string, r
         ],
       });
 
-      const parsed = resumeAnalysisSchema.partial().parse(
-        JSON.parse(extractJsonObject(response.output_text)),
-      );
+      const raw = JSON.parse(extractJsonObject(response.output_text)) as Record<string, unknown>;
+      const parsed = resumeAnalysisSchema
+        .partial()
+        .omit({ bulletRewriteIdeas: true })
+        .parse(raw);
 
       payload = {
         overallAssessment: parsed.overallAssessment ?? fallback.overallAssessment,
@@ -168,9 +206,7 @@ export async function generateResumeAnalysis(profile: Profile, userId: string, r
         framingSuggestions: parsed.framingSuggestions?.length
           ? parsed.framingSuggestions
           : fallback.framingSuggestions,
-        bulletRewriteIdeas: parsed.bulletRewriteIdeas?.length
-          ? parsed.bulletRewriteIdeas
-          : fallback.bulletRewriteIdeas,
+        bulletRewriteIdeas: normalizeBulletRewriteIdeas(raw.bulletRewriteIdeas, fallback.bulletRewriteIdeas),
         tailoredRecommendations: parsed.tailoredRecommendations?.length
           ? parsed.tailoredRecommendations
           : fallback.tailoredRecommendations,
