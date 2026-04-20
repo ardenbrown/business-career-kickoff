@@ -7,6 +7,15 @@ import { prisma } from "@/lib/prisma";
 import { parseResumeFile } from "@/lib/resume";
 import { generateResumeAnalysis } from "@/lib/ai/generators";
 
+function withTimeout<T>(promise: Promise<T>, ms: number, message: string) {
+  return Promise.race([
+    promise,
+    new Promise<never>((_, reject) => {
+      setTimeout(() => reject(new Error(message)), ms);
+    }),
+  ]);
+}
+
 export async function uploadResumeAction(formData: FormData) {
   const user = await requireUser();
   const file = formData.get("resume");
@@ -40,7 +49,11 @@ export async function uploadResumeAction(formData: FormData) {
     },
   });
 
-  await generateResumeAnalysis(profile, user.id, parsed.text, resume.id);
+  await withTimeout(
+    generateResumeAnalysis(profile, user.id, parsed.text, resume.id),
+    20000,
+    "Resume upload took too long to analyze. Please try a smaller PDF or try again.",
+  );
 
   revalidatePath("/resume-feedback");
   revalidatePath("/dashboard");

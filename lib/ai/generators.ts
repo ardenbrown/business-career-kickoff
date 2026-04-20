@@ -5,7 +5,6 @@ import type {
   ApplicationPlanPayload,
   DashboardPayload,
   OutreachPayload,
-  ResumeAnalysisPayload,
   RoleRecommendationsPayload,
   TimelinePayload,
 } from "@/lib/types";
@@ -21,7 +20,6 @@ import {
   applicationPlanSchema,
   dashboardSchema,
   outreachSchema,
-  resumeAnalysisSchema,
   roleRecommendationsSchema,
   timelineSchema,
 } from "@/lib/ai/schemas";
